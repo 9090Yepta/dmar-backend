@@ -1,6 +1,6 @@
-node_modules/
-dist/
+# Mengabaikan file env
 .env
-storage/
-*.log
-Thumbs.db
+
+# Mengabaikan semua isi di dalam folder storage/uploads, tapi foldernya tetap terbawa
+/storage/uploads/*
+!/storage/uploads/.gitignore
