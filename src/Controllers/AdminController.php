@@ -95,6 +95,19 @@ final class AdminController
         }
     }
 
+    private function limitSearchTerm(string $value): string
+    {
+        if (function_exists('mb_substr')) {
+            return mb_substr($value, 0, 100, 'UTF-8');
+        }
+
+        if (preg_match('/^.{0,100}/us', $value, $matches) === 1) {
+            return $matches[0];
+        }
+
+        return substr($value, 0, 100);
+    }
+
     /** @return array{table:string,id:string,reference:string,scope:string,level:int|null} */
     private function userTable(string $role): array
     {
@@ -174,7 +187,7 @@ final class AdminController
                 default => 'u.nama',
             };
             $where .= " AND {$searchColumn} LIKE :searchValue";
-            $params['searchValue'] = '%' . mb_substr($search, 0, 100) . '%';
+            $params['searchValue'] = '%' . $this->limitSearchTerm($search) . '%';
         }
         try {
             $level = $meta['level'] === null ? '0 AS levelAccess' : 'u.level_access AS levelAccess';
@@ -483,7 +496,7 @@ final class AdminController
             $search = trim((string) ($_GET['search'] ?? ''));
             if ($search !== '') {
                 $where .= " AND {$searchColumn} LIKE :search";
-                $params['search'] = '%' . mb_substr($search, 0, 100) . '%';
+                $params['search'] = '%' . $this->limitSearchTerm($search) . '%';
             }
             $limit = max(1, min(100, (int) ($_GET['limit'] ?? 10)));
             $offset = max(0, (int) ($_GET['offset'] ?? 0));
