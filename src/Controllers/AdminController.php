@@ -926,10 +926,18 @@ final class AdminController
             $params[$key] = $id;
         }
         try {
-            $query = $db->prepare("SELECT CASE WHEN d.job_site_id IS NULL THEN 'Tanpa Job Site' ELSE COALESCE(js.name, CONCAT('Site #', d.job_site_id)) END AS job_site, d.tgl, d.unit_code, d.model, d.hm, d.problem, d.activity, d.act_start, d.act_end, d.code_job, d.component, d.remark, CASE d.status_unit WHEN 0 THEN '-' WHEN 1 THEN 'Continue' WHEN 2 THEN 'RFU' ELSE 'Tidak diketahui' END AS status_unit, CASE d.status_dmar WHEN 1 THEN 'Approved' ELSE 'Pending' END AS status_dmar FROM tb_dmar d LEFT JOIN tb_job_sites js ON js.id = d.job_site_id WHERE d.job_site_id IS NULL AND d.id_dmar IN (" . implode(',', $placeholders) . ') ORDER BY d.tgl DESC, d.created_at DESC');
+            $query = $db->prepare("SELECT d.tgl AS tanggal, c.nrpp AS nrpp, c.nama AS nama, fm.nama AS foremen, d.unit_code, d.model, d.hm, d.problem, d.activity, d.act_start AS `start`, d.act_end AS `end`, d.code_job, d.component, d.remark, CASE d.status_unit WHEN 0 THEN '-' WHEN 1 THEN 'Continue' WHEN 2 THEN 'RFU' ELSE 'Tidak diketahui' END AS status_unit, CASE d.status_dmar WHEN 1 THEN 'Approved' ELSE 'Pending' END AS `status laporan` FROM tb_dmar d LEFT JOIN tb_users_mtc_crew c ON c._id_mtc_crew = d._id_mtc_crew LEFT JOIN tb_users_mtc_fm fm ON fm._id_mtc_fm = d._id_mtc_fm WHERE d.job_site_id IS NULL AND d.id_dmar IN (" . implode(',', $placeholders) . ') ORDER BY d.tgl DESC, d.created_at DESC');
             $query->execute($params);
             $rows = $query->fetchAll();
             if (count($rows) !== count($ids)) { Response::json(['ok' => false, 'error' => ['code' => 'validation_error', 'message' => 'Sebagian laporan tidak ditemukan pada arsip lama']], 422); return; }
+            $months = [1 => 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            foreach ($rows as &$row) {
+                if (!empty($row['tanggal'])) {
+                    $date = new \DateTimeImmutable((string) $row['tanggal']);
+                    $row['tanggal'] = $date->format('d') . '-' . $months[(int) $date->format('n')] . '-' . $date->format('Y');
+                }
+            }
+            unset($row);
             if ($format === 'xlsx') {
                 Response::json(['ok' => true, 'data' => ['items' => $rows]]);
                 return;
@@ -940,7 +948,7 @@ final class AdminController
             $output = fopen('php://output', 'wb');
             if ($output === false) throw new \RuntimeException('CSV stream could not be opened');
             fwrite($output, "\xEF\xBB\xBF");
-            fputcsv($output, ['job_site', 'tgl', 'unit_code', 'model', 'hm', 'problem', 'activity', 'act_start', 'act_end', 'code_job', 'component', 'remark', 'status_unit', 'status_dmar'], ',', '"', '', "\r\n");
+            fputcsv($output, ['tanggal', 'nrpp', 'nama', 'foremen', 'unit_code', 'model', 'hm', 'problem', 'activity', 'start', 'end', 'code_job', 'component', 'remark', 'status_unit', 'status laporan'], ',', '"', '', "\r\n");
             foreach ($rows as $row) {
                 $values = array_values($row);
                 foreach ($values as $key => $value) {
